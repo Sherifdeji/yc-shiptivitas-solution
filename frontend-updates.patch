@@ -1,0 +1,382 @@
+diff --git a/src/App.js b/src/App.js
+index 18bcba9..4aa5c3b 100755
+--- a/src/App.js
++++ b/src/App.js
+@@ -1,34 +1,104 @@
+-import React, { Component } from 'react';
+-import 'bootstrap/dist/css/bootstrap.css';
+-import HomeTab from './HomeTab';
+-import Navigation from './Navigation';
+-import Board from './Board';
+-import './App.css';
++import React, { Component } from "react";
++import "bootstrap/dist/css/bootstrap.css";
++import HomeTab from "./HomeTab";
++import Navigation from "./Navigation";
++import Board from "./Board";
++import "./App.css";
+ 
+ class App extends Component {
+   constructor(props) {
+     super(props);
+     this.state = {
+-      selectedTab: 'home',
++      selectedTab: "home",
++      clients: {
++        backlog: [],
++        inProgress: [],
++        complete: [],
++      },
+     };
++    this.handleCardMove = this.handleCardMove.bind(this);
+   }
++
++  componentDidMount() {
++    // Fetch initial data from the server
++    fetch("http://localhost:3001/api/v1/clients")
++      .then((res) => res.json())
++      .then((data) => {
++        this.setState({ clients: this.categorizeClients(data) });
++      })
++      .catch((error) => console.error("Error fetching clients:", error));
++  }
++
++  categorizeClients(clients) {
++    const categorized = {
++      backlog: [],
++      inProgress: [],
++      complete: [],
++    };
++
++    clients.forEach((client) => {
++      switch (client.status) {
++        case "in-progress":
++          categorized.inProgress.push(client);
++          break;
++        case "complete":
++          categorized.complete.push(client);
++          break;
++        case "backlog":
++        default:
++          categorized.backlog.push(client);
++          break;
++      }
++    });
++
++    // Sort each lane by priority
++    Object.keys(categorized).forEach((key) => {
++      categorized[key].sort((a, b) => a.priority - b.priority);
++    });
++
++    return categorized;
++  }
++
++  handleCardMove(cardId, newStatus, newPriority) {
++    fetch(`http://localhost:3001/api/v1/clients/${cardId}`, {
++      method: "PUT",
++      headers: {
++        "Content-Type": "application/json",
++      },
++      body: JSON.stringify({
++        status: newStatus,
++        priority: newPriority,
++      }),
++    })
++      .then((res) => res.json())
++      .then((updatedClients) => {
++        // Sync state with the complete list from the backend
++        this.setState({ clients: this.categorizeClients(updatedClients) });
++      })
++      .catch((error) => console.error("Error updating client:", error));
++  }
++
+   renderShippingRequests() {
+-    return (<Board />);
++    return (
++      <Board clients={this.state.clients} onCardMove={this.handleCardMove} />
++    );
+   }
+ 
+   renderNavigation() {
+-    return (<Navigation
+-      onClick={(tabName) => this.changeTab(tabName)}
+-      selectedTab={this.state.selectedTab}
+-      />);
++    return (
++      <Navigation
++        onClick={(tabName) => this.changeTab(tabName)}
++        selectedTab={this.state.selectedTab}
++      />
++    );
+   }
+ 
+   renderTabContent() {
+-    switch(this.state.selectedTab) {
+-      case 'home':
++    switch (this.state.selectedTab) {
++      case "home":
+       default:
+         return HomeTab();
+-      case 'shipping-requests':
++      case "shipping-requests":
+         return this.renderShippingRequests();
+     }
+   }
+@@ -37,9 +107,7 @@ class App extends Component {
+       <div className="App">
+         {this.renderNavigation()}
+ 
+-        <div className="App-body">
+-          {this.renderTabContent()}
+-        </div>
++        <div className="App-body">{this.renderTabContent()}</div>
+       </div>
+     );
+   }
+diff --git a/src/Board.js b/src/Board.js
+index 9a0e1a3..054bb8c 100644
+--- a/src/Board.js
++++ b/src/Board.js
+@@ -7,14 +7,6 @@ import "./Board.css";
+ export default class Board extends React.Component {
+   constructor(props) {
+     super(props);
+-    const clients = this.getClients();
+-    this.state = {
+-      clients: {
+-        backlog: clients,
+-        inProgress: [],
+-        complete: [],
+-      },
+-    };
+     this.swimlanes = {
+       backlog: React.createRef(),
+       inProgress: React.createRef(),
+@@ -22,48 +14,6 @@ export default class Board extends React.Component {
+     };
+   }
+ 
+-  getClients() {
+-    return [
+-      ["1", "Stark, White and Abbott", "Cloned Optimal Architecture"],
+-      ["2", "Wiza LLC", "Exclusive Bandwidth-Monitored Implementation"],
+-      [
+-        "3",
+-        "Nolan LLC",
+-        "Vision-Oriented 4Thgeneration Graphicaluserinterface",
+-      ],
+-      ["4", "Thompson PLC", "Streamlined Regional Knowledgeuser"],
+-      ["5", "Walker-Williamson", "Team-Oriented 6Thgeneration Matrix"],
+-      ["6", "Boehm and Sons", "Automated Systematic Paradigm"],
+-      [
+-        "7",
+-        "Runolfsson, Hegmann and Block",
+-        "Integrated Transitional Strategy",
+-      ],
+-      ["8", "Schumm-Labadie", "Operative Heuristic Challenge"],
+-      ["9", "Kohler Group", "Re-Contextualized Multi-Tasking Attitude"],
+-      ["10", "Romaguera Inc", "Managed Foreground Toolset"],
+-      ["11", "Reilly-King", "Future-Proofed Interactive Toolset"],
+-      [
+-        "12",
+-        "Emard, Champlin and Runolfsdottir",
+-        "Devolved Needs-Based Capability",
+-      ],
+-      ["13", "Fritsch, Cronin and Wolff", "Open-Source 3Rdgeneration Website"],
+-      ["14", "Borer LLC", "Profit-Focused Incremental Orchestration"],
+-      ["15", "Emmerich-Ankunding", "User-Centric Stable Extranet"],
+-      ["16", "Willms-Abbott", "Progressive Bandwidth-Monitored Access"],
+-      ["17", "Brekke PLC", "Intuitive User-Facing Customerloyalty"],
+-      ["18", "Bins, Toy and Klocko", "Integrated Assymetric Software"],
+-      ["19", "Hodkiewicz-Hayes", "Programmable Systematic Securedline"],
+-      ["20", "Murphy, Lang and Ferry", "Organized Explicit Access"],
+-    ].map((companyDetails) => ({
+-      id: companyDetails[0],
+-      name: companyDetails[1],
+-      description: companyDetails[2],
+-      status: "backlog",
+-    }));
+-  }
+-
+   componentDidMount() {
+     this.drake = Dragula(
+       [
+@@ -75,48 +25,47 @@ export default class Board extends React.Component {
+     );
+ 
+     this.drake.on("drop", (el, target, source, sibling) => {
+-      this.drake.cancel(true); // IMPORTANT: Prevent Dragula's default DOM change
++      this.drake.cancel(true); // Prevent default DOM change
++
++      // Parse cardId to an integer to match the data type in the state
++      const cardId = parseInt(el.getAttribute("data-id"), 10);
++
++      let newStatus;
++      if (target === this.swimlanes.inProgress.current) {
++        newStatus = "in-progress";
++      } else if (target === this.swimlanes.complete.current) {
++        newStatus = "complete";
++      } else {
++        newStatus = "backlog";
++      }
+ 
+-      const cardId = el.getAttribute("data-id");
++      // --- Corrected Priority Calculation for Integer-based Backend ---
+       const targetLaneKey = this.getStateKeyFromElement(target);
+-      const sourceLaneKey = this.getStateKeyFromElement(source);
+-
+-      this.setState((prevState) => {
+-        const state = JSON.parse(JSON.stringify(prevState)); // Deep copy state to avoid mutation
+-        const { clients } = state;
+-
+-        const card = clients[sourceLaneKey].find((c) => c.id === cardId);
+-        if (!card) return;
++      const targetCards = this.props.clients[targetLaneKey] || [];
++      let newPriority;
+ 
+-        // Remove card from the source lane
+-        const sourceCards = clients[sourceLaneKey].filter(
+-          (c) => c.id !== cardId
+-        );
+-        clients[sourceLaneKey] = sourceCards;
++      if (sibling) {
++        // Dropped before a sibling. The new priority will be the sibling's priority.
++        // The backend will handle shifting other cards to make space.
++        const siblingId = parseInt(sibling.getAttribute("data-id"), 10);
++        const siblingCard = targetCards.find((c) => c.id === siblingId);
+ 
+-        // Find the new index for the card
+-        let newIndex = 0;
+-        if (sibling) {
+-          const siblingCard = clients[targetLaneKey].find(
+-            (c) => c.id === sibling.getAttribute("data-id")
+-          );
+-          newIndex = clients[targetLaneKey].indexOf(siblingCard);
++        if (siblingCard) {
++          newPriority = siblingCard.priority;
+         } else {
+-          // If no sibling, it's at the end of the list
+-          newIndex = clients[targetLaneKey].length;
++          // This is a fallback in case the sibling isn't found, place at end.
++          const lastCard = targetCards[targetCards.length - 1];
++          newPriority = lastCard ? lastCard.priority + 1 : 1;
+         }
++      } else {
++        // Dropped at the end of the list. New priority is one more than the last card's.
++        const lastCard = targetCards[targetCards.length - 1];
++        newPriority = lastCard ? lastCard.priority + 1 : 1;
++      }
++      // --- End of Fix ---
+ 
+-        // Update card status if it moved to a new lane
+-        if (sourceLaneKey !== targetLaneKey) {
+-          card.status =
+-            targetLaneKey === "inProgress" ? "in-progress" : targetLaneKey;
+-        }
+-
+-        // Add the card to its new lane at the correct position
+-        clients[targetLaneKey].splice(newIndex, 0, card);
+-
+-        return state;
+-      });
++      // Call the parent function to handle the API update
++      this.props.onCardMove(cardId, newStatus, newPriority);
+     });
+   }
+ 
+@@ -132,7 +81,7 @@ export default class Board extends React.Component {
+   }
+ 
+   renderSwimlane(name, clients, ref) {
+-    return <Swimlane name={name} clients={clients} dragulaRef={ref} />;
++    return <Swimlane name={name} clients={clients || []} dragulaRef={ref} />;
+   }
+ 
+   render() {
+@@ -143,21 +92,21 @@ export default class Board extends React.Component {
+             <div className="col-md-4">
+               {this.renderSwimlane(
+                 "Backlog",
+-                this.state.clients.backlog,
++                this.props.clients.backlog,
+                 this.swimlanes.backlog
+               )}
+             </div>
+             <div className="col-md-4">
+               {this.renderSwimlane(
+                 "In Progress",
+-                this.state.clients.inProgress,
++                this.props.clients.inProgress,
+                 this.swimlanes.inProgress
+               )}
+             </div>
+             <div className="col-md-4">
+               {this.renderSwimlane(
+                 "Complete",
+-                this.state.clients.complete,
++                this.props.clients.complete,
+                 this.swimlanes.complete
+               )}
+             </div>
+@@ -166,61 +115,4 @@ export default class Board extends React.Component {
+       </div>
+     );
+   }
+-
+-  componentDidMount() {
+-    this.drake = Dragula([
+-      this.swimlanes.backlog.current,
+-      this.swimlanes.inProgress.current,
+-      this.swimlanes.complete.current,
+-    ]);
+-    this.drake.on('drop', (el, target, source, sibling) => this.updateClient(el, target, source, sibling));
+-  }
+-
+-  componentWillUnmount() {
+-    this.drake.remove();
+-  }
+-
+-  /**
+-   * Change the status of client when a Card is moved
+-   */
+-  updateClient(el, target, _, sibling) {
+-    // Reverting DOM changes from Dragula
+-    this.drake.cancel(true);
+-
+-    // Find out which swimlane the Card was moved to
+-    let targetSwimlane = 'backlog';
+-    if (target === this.swimlanes.inProgress.current) {
+-      targetSwimlane = 'in-progress';
+-    } else if (target === this.swimlanes.complete.current) {
+-      targetSwimlane = 'complete';
+-    }
+-
+-    // Create a new clients array
+-    const clientsList = [
+-      ...this.state.clients.backlog,
+-      ...this.state.clients.inProgress,
+-      ...this.state.clients.complete,
+-    ];
+-    const clientThatMoved = clientsList.find(client => client.id === el.dataset.id);
+-    const clientThatMovedClone = {
+-      ...clientThatMoved,
+-      status: targetSwimlane,
+-    };
+-
+-    // Remove ClientThatMoved from the clientsList
+-    const updatedClients = clientsList.filter(client => client.id !== clientThatMovedClone.id);
+-
+-    // Place ClientThatMoved just before the sibling client, keeping the order
+-    const index = updatedClients.findIndex(client => sibling && client.id === sibling.dataset.id);
+-    updatedClients.splice(index === -1 ? updatedClients.length : index , 0, clientThatMovedClone);
+-
+-    // Update React state to reflect changes
+-    this.setState({
+-      clients: {
+-        backlog: updatedClients.filter(client => !client.status || client.status === 'backlog'),
+-        inProgress: updatedClients.filter(client => client.status && client.status === 'in-progress'),
+-        complete: updatedClients.filter(client => client.status && client.status === 'complete'),
+-      }
+-    });
+-  }
+ }
