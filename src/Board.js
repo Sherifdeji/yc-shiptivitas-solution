@@ -45,13 +45,20 @@ export default class Board extends React.Component {
       let newPriority;
 
       if (sibling) {
-        // Dropped before a sibling. The new priority will be the sibling's priority.
-        // The backend will handle shifting other cards to make space.
+        // Dropped before a sibling. Need to determine if we're moving up or down
         const siblingId = parseInt(sibling.getAttribute("data-id"), 10);
         const siblingCard = targetCards.find((c) => c.id === siblingId);
+        const currentCard = targetCards.find((c) => c.id === cardId);
 
-        if (siblingCard) {
-          newPriority = siblingCard.priority;
+        if (siblingCard && currentCard) {
+          if (currentCard.priority < siblingCard.priority) {
+            // Moving down: use sibling's priority - 1
+            newPriority = siblingCard.priority - 1;
+            if (newPriority < 1) newPriority = 1;
+          } else {
+            // Moving up: use sibling's priority directly
+            newPriority = siblingCard.priority;
+          }
         } else {
           // This is a fallback in case the sibling isn't found, place at end.
           const lastCard = targetCards[targetCards.length - 1];
@@ -63,7 +70,6 @@ export default class Board extends React.Component {
         newPriority = lastCard ? lastCard.priority + 1 : 1;
       }
       // --- End of Fix ---
-
       // Call the parent function to handle the API update
       this.props.onCardMove(cardId, newStatus, newPriority);
     });
